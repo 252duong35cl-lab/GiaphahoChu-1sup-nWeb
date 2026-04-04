@@ -67,13 +67,7 @@ export default function LoginPage() {
           return;
         }
 
-        // 1. Try to sign up
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-        });
-
-        if (error) {
+              if (error) {
           // Check if error is related to missing database schema/tables
           if (
             error.message.includes("relation") &&
