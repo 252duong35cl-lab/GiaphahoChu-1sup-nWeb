@@ -1,9 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 
-// ID chuẩn của họ Chu từ database của bạn
-const CHU_FAMILY_ID = '2dae344e-f945-47f4-b640-775f80159e05';
-
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
@@ -24,23 +21,8 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
-
-  // Logic kiểm tra quyền truy cập Dashboard
-  if (request.nextUrl.pathname.startsWith("/dashboard") && user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("status, family_id")
-      .eq("id", user.id)
-      .single();
-
-    // Nếu đã đúng họ Chu và trạng thái approved thì cho đi tiếp
-    if (profile?.family_id === CHU_FAMILY_ID && profile?.status === 'approved') {
-      return supabaseResponse;
-    }
-    
-    // Nếu không, Middleware sẽ không chặn nhưng page.tsx sẽ hiển thị "Chờ duyệt"
-  }
+  // Quan trọng: Phải getUser() để refresh session
+  await supabase.auth.getUser();
 
   return supabaseResponse;
 }
