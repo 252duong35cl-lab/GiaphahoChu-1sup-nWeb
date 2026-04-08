@@ -1,54 +1,76 @@
-import { getSupabase, getIsAdmin } from "@/utils/supabase/queries";
-import { ShieldAlert } from "lucide-react";
+import { getTodayLunar } from "@/utils/dateHelpers";
+import { computeEvents } from "@/utils/eventHelpers";
+import { getIsAdmin, getSupabase } from "@/utils/supabase/queries";
+import {
+  Cake,
+  CalendarDays,
+  Database,
+  Flower2,
+  GitMerge,
+  Network,
+  Star,
+  Users,
+  ShieldAlert,
+  BarChart2,
+} from "lucide-react";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
-// ID chuẩn của họ Chu
-const CURRENT_FAMILY_ID = '2dae344e-f945-47f4-b640-775f80159e05';
+// ID chuẩn của họ Chu - Thêm trim() để chống lỗi khoảng trắng
+const CURRENT_FAMILY_ID = '2dae344e-f945-47f4-b640-775f80159e05'.trim();
 
-export default async function DashboardPage() {
+export default async function DashboardLaunchpad() {
   const supabase = await getSupabase();
   
-  // 1. Lấy user
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // 2. Lấy profile
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("status, family_id")
-    .eq("id", user.id)
-    .single();
+  const [profileResult, isAdmin] = await Promise.all([
+    supabase.from("profiles").select("status, family_id").eq("id", user.id).single(),
+    getIsAdmin()
+  ]);
 
-  // 3. KIỂM TRA QUYỀN (Nếu status là approved thì cho vào luôn)
-  const isApproved = profile?.status === 'approved';
-  const isAdmin = await getIsAdmin();
+  const profile = profileResult.data;
+
+  // SỬA LỖI Ở ĐÂY: Thêm dấu ? và trim() để chắc chắn so sánh đúng
+  const isApproved = profile?.status === 'approved' && 
+                     profile?.family_id?.trim() === CURRENT_FAMILY_ID;
+
+  let upcomingEvents: any[] = [];
+  const lunar = getTodayLunar();
+
+  if (isApproved) {
+    const [{ data: persons }, { data: customEvents }] = await Promise.all([
+      supabase.from("persons").select("id, full_name, birth_year, birth_month, birth_day, death_year, death_month, death_day, is_deceased"),
+      supabase.from("custom_events").select("id, name, content, event_date, location, created_by")
+    ]);
+    const allEvents = computeEvents(persons ?? [], customEvents ?? []);
+    upcomingEvents = allEvents.filter(e => e.daysUntil >= 0 && e.daysUntil <= 30);
+  }
 
   return (
-    <main className="p-8">
-      {!isApproved ? (
-        <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
-          <ShieldAlert className="size-16 text-amber-500 mb-4" />
-          <h1 className="text-2xl font-bold">Tài khoản đang chờ duyệt</h1>
-          <p className="text-gray-500">Vui lòng liên hệ quản trị viên Họ Chu.</p>
-        </div>
-      ) : (
-        <div>
-          <h1 className="text-3xl font-bold mb-6">Chào mừng bạn đến với Dashboard</h1>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-6 bg-blue-50 rounded-xl border border-blue-200">
-              <h2 className="font-bold">Dòng họ: Họ Chu</h2>
-              <p>Trạng thái: Đã phê duyệt</p>
-            </div>
-            {isAdmin && (
-              <div className="p-6 bg-rose-50 rounded-xl border border-rose-200">
-                <h2 className="font-bold text-rose-700">Quyền: Quản trị viên</h2>
-                <p className="text-rose-600">Bạn có thể quản lý thành viên.</p>
-              </div>
-            )}
-          </div>
-          {/* Bạn có thể thêm các Link dẫn đến /members, /stats ở đây */}
+    <main className="flex-1 flex flex-col p-4 sm:p-8 max-w-7xl mx-auto w-full">
+      {/* Nếu chưa duyệt, hiện thông báo này */}
+      {!isApproved && (
+        <div className="mb-10 p-6 rounded-3xl bg-amber-50 border border-amber-200 flex flex-col items-center text-center">
+          <ShieldAlert className="size-12 text-amber-600 mb-4" />
+          <h2 className="text-xl font-bold text-amber-900 mb-2">Tài khoản chờ duyệt</h2>
+          <p className="text-amber-700">Vui lòng liên hệ quản trị viên.</p>
+          {/* Debug: Hiện ID để bạn kiểm tra xem có khớp không */}
+          <p className="text-[10px] mt-4 text-gray-400">ID DB: {profile?.family_id} | ID Code: {CURRENT_FAMILY_ID}</p>
         </div>
       )}
+
+      {/* Nội dung Dashboard - Chỉ mờ đi chứ không mất hẳn để bạn biết là đã vào được web */}
+      <div className={!isApproved ? "opacity-40 pointer-events-none" : ""}>
+         <h1 className="text-2xl font-bold mb-4">Dashboard Gia Phả</h1>
+         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 bg-white border rounded-xl">Cây gia phả</div>
+            <div className="p-4 bg-white border rounded-xl">Sự kiện</div>
+            <div className="p-4 bg-white border rounded-xl">Thành viên</div>
+         </div>
+         {isAdmin && <div className="mt-8 p-4 bg-rose-50 border border-rose-200 rounded-xl">Quản trị viên</div>}
+      </div>
     </main>
   );
 }
