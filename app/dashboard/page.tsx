@@ -1,6 +1,7 @@
 import { getTodayLunar } from "@/utils/dateHelpers";
 import { computeEvents } from "@/utils/eventHelpers";
 import { getIsAdmin, getSupabase } from "@/utils/supabase/queries";
+export const revalidate = 0;
 import {
   Cake,
   CalendarDays,
