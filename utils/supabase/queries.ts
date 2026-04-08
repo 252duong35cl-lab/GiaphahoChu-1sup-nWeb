@@ -1,14 +1,19 @@
 import { Profile } from "@/types";
 import { createClient } from "@/utils/supabase/server";
-import { cookies } from "next/headers";
 import { cache } from "react";
 
-// Hàm này được cache lại để đảm bảo chỉ tạo 1 Supabase Client duy nhất cho mỗi request
+/**
+ * Tối ưu hóa Supabase Client cho Server Component
+ * Sửa lỗi: "Expected 0 arguments, but got 1"
+ * createClient() bản mới đã tự động xử lý cookies bên trong.
+ */
 export const getSupabase = cache(async () => {
-  const cookieStore = await cookies();
-  return createClient(cookieStore);
+  return createClient();
 });
 
+/**
+ * Lấy thông tin User từ hệ thống Auth
+ */
 export const getUser = cache(async () => {
   const supabase = await getSupabase();
   const {
@@ -18,8 +23,13 @@ export const getUser = cache(async () => {
   return user;
 });
 
+/**
+ * Lấy Profile chi tiết từ bảng 'profiles'
+ * @param userId - ID người dùng (tùy chọn, nếu không có sẽ lấy user hiện tại)
+ */
 export const getProfile = cache(async (userId?: string) => {
   let id = userId;
+  
   if (!id) {
     const user = await getUser();
     if (!user) return null;
@@ -36,6 +46,10 @@ export const getProfile = cache(async (userId?: string) => {
   return profile as Profile | null;
 });
 
+/**
+ * Kiểm tra quyền Quản trị viên (Admin)
+ * Trả về true nếu role trong database là 'admin'
+ */
 export const getIsAdmin = cache(async () => {
   const profile = await getProfile();
   return profile?.role === "admin";
